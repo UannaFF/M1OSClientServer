@@ -16,10 +16,12 @@ void registration_init(void)
 client_bundle_t* registration_lookup(unsigned long key)
 {
     int i=0;
-    
+
     for(i=0; i< nb_registered_clients; i++){
         if(registration_table[i]->key == key){
-            return registration_table[i];
+            client_bundle_t* client = registration_table[i]; //is it good?
+
+            return client;
         }
     }
 
@@ -42,7 +44,6 @@ int registration_insert(client_bundle_t* cl)
     /* insert cl */
     registration_table[nb_registered_clients]=cl;
     nb_registered_clients++;
-
     return 0;
 }
 
@@ -50,7 +51,6 @@ int registration_insert(client_bundle_t* cl)
 client_bundle_t* registration_remove(unsigned long key)
 {
     int i=0;
-    
     for(i=0; i<nb_registered_clients; i++){
         if(registration_table[i]->key == key){
             break;

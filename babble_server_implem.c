@@ -43,13 +43,11 @@ static void free_client_data(client_bundle_t *client)
      * freeing properly would be a complex operation */
     
     /*publication_t *item= client->pub_list, *previous;
-
     while(item!=NULL){
         previous=item;
         item = item->next;
         free(previous);
     }
-
     free(client);*/
 }
 

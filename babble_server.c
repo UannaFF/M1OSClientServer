@@ -10,6 +10,7 @@
 #include <time.h>
 #include <assert.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "babble_server.h"
 #include "babble_types.h"
@@ -20,6 +21,13 @@
 command_t command_buffer[CBUFFER_SIZE];
 int bcount = 0;
 
+//semaphores
+sem_t sem_cs;
+sem_t sem_put;
+sem_t sem_process;
+
+//sem_t sem_threads;
+//sem_t sem;
 
 
 static void display_help(char *exec)
@@ -185,17 +193,27 @@ static int answer_command(command_t *cmd)
 
 void* executor_thread(void* arg) {
 
-    //Protect
-    while(conditionprotected) {
-        command_t cmd = command_buffer[bcount];
-    if(process_command(cmd) == -1){
-        fprintf(stderr, "Warning: unable to process command from client %lu\n", client_key);
-    }
+    while(1) {
+        //Protect
+        sem_wait(&sem_process);
+        sem_wait(&sem_cs);
 
-    if(answer_command(cmd) == -1){
-        fprintf(stderr, "Warning: unable to answer command from client %lu\n", client_key);
+        bcount--;
+        command_t cmd = command_buffer[bcount];
+        
+
+        sem_post(&sem_cs);
+        sem_post(&sem_put);
+
+        if(process_command(&cmd) == -1){
+            fprintf(stderr, "Warning: unable to process command from client %lu\n", cmd.key);
+        }
+
+        if(answer_command(&cmd) == -1){
+            fprintf(stderr, "Warning: unable to answer command from client %lu\n", cmd.key);
+        }
     }
-    }
+    
     return NULL;
 }
 
@@ -270,7 +288,14 @@ void* communication_thread(void* arg)
             }
             else{
                 //Protect!!!
-                command_buffer[bcount] = cmd;
+                sem_wait(&sem_put);
+                sem_wait(&sem_cs);
+
+                command_buffer[bcount] = *cmd;
+                bcount++;
+
+                sem_post(&sem_cs);
+                sem_post(&sem_process);
             }
             free(recv_buff);
             free(cmd);
@@ -301,7 +326,9 @@ int main(int argc, char *argv[])
     int opt;
     int nb_args=1;
 
-    command_buffer = (command_t*)malloc(sizeof(command_t));
+    pthread_t tid_ex;
+
+    //command_buffer = (command_t*)malloc(sizeof(command_t));
 
     while ((opt = getopt (argc, argv, "+p:")) != -1){
         switch (opt){
@@ -330,6 +357,20 @@ int main(int argc, char *argv[])
 
     printf("Babble server bound to port %d\n", portno);    
     
+    //Semaphore initialization
+    sem_init(&sem_cs, 1, 1); //grant access to one
+    sem_init(&sem_process, 1, 0); //lock from the begining
+    sem_init(&sem_put, 1, CBUFFER_SIZE);
+
+    //sem_init(&sem, 1, 1);
+    //sem_init(&sem_threads, 1, BABBLE_COMMUNICATION_THREADS);
+
+    //Create the unique execution thread
+    if(pthread_create (&tid_ex, NULL, executor_thread, (void *)NULL) != 0){
+        fprintf(stderr,"Failed to create the communication thread\n");
+        return EXIT_FAILURE;
+    }
+
     /* main server loop */
     while(1){
 
