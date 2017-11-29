@@ -8,8 +8,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <pthread.h>
-#include <poll.h>
 
 
 #include "babble_server.h"
@@ -19,7 +17,6 @@
 #include "babble_registration.h"
 
 time_t server_start;
-pthread_rwlock_t lock_rw = PTHREAD_RWLOCK_INITIALIZER;
 
 /* used to create a timeline of publications*/
 typedef struct timeline_item{
@@ -55,9 +52,7 @@ static void free_client_data(client_bundle_t *client)
 void generate_cmd_error(command_t *cmd)
 {
     /* lookup client */
-    pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
 
     
 
@@ -208,14 +203,15 @@ int run_login_command(command_t *cmd)
     client_data->nb_followers=1;
 
     //Protected write
-    pthread_rwlock_wrlock(&lock_rw);
+    //pthread_rwlock_wrlock(&lock_rw);
     if(registration_insert(client_data)){
         free(client_data->pub_set);
         free(client_data);
         generate_cmd_error(cmd);
+        ////pthread_rwlock_unlock(&lock_rw);
         return -1;
     }
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
     
     printf("### New client %s (key = %lu)\n", client_data->client_name, client_data->key);
 
@@ -231,9 +227,9 @@ int run_login_command(command_t *cmd)
 
 int run_publish_command(command_t *cmd)
 {    
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
     
     if(client == NULL){
         fprintf(stderr, "Error -- no client found\n");
@@ -257,9 +253,9 @@ int run_publish_command(command_t *cmd)
 
 int run_follow_command(command_t *cmd)
 {
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
     
     if(client == NULL){
         fprintf(stderr, "Error -- no client found\n");
@@ -271,9 +267,9 @@ int run_follow_command(command_t *cmd)
     unsigned long f_key = hash(cmd->msg);
 
     /* lookup client to follow */
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *f_client = registration_lookup(f_key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
     
     if(f_client == NULL){
         generate_cmd_error(cmd);        
@@ -319,9 +315,9 @@ int run_timeline_command(command_t *cmd)
     uint64_t end_time= (uint64_t)1000000000 * tt.tv_sec + tt.tv_nsec;
 
     /* lookup client */
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
 
     if(client == NULL){
         fprintf(stderr, "Error -- no client found\n");
@@ -406,9 +402,9 @@ int run_timeline_command(command_t *cmd)
 int run_fcount_command(command_t *cmd)
 {
     /* lookup client */
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
 
     if(client == NULL){
         fprintf(stderr, "Error -- no client found\n");
@@ -428,9 +424,9 @@ int run_fcount_command(command_t *cmd)
 int run_rdv_command(command_t *cmd)
 {
     /* lookup client */
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
     
     if(client == NULL){
         fprintf(stderr, "Error -- no client found\n");
@@ -453,9 +449,9 @@ int unregisted_client(command_t *cmd)
     assert(cmd->cid == UNREGISTER);
     
     /* remove client */
-    pthread_rwlock_wrlock(&lock_rw);
+    //pthread_rwlock_wrlock(&lock_rw);
     client_bundle_t *client = registration_remove(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
 
     if(client != NULL){
         printf("### Unregister client %s (key = %lu)\n", client->client_name, client->key);
@@ -474,9 +470,9 @@ int unregisted_client(command_t *cmd)
 int notify_parse_error(command_t *cmd, char *input)
 {
     /* lookup client */
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(cmd->key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
 
     if(client == NULL){
         fprintf(stderr, "Error -- no client found\n");
@@ -503,9 +499,9 @@ int notify_parse_error(command_t *cmd, char *input)
 int write_to_client(unsigned long key, int size, void* buf)
 {
 
-    pthread_rwlock_rdlock(&lock_rw);
+    //pthread_rwlock_rdlock(&lock_rw);
     client_bundle_t *client = registration_lookup(key);
-    pthread_rwlock_unlock(&lock_rw);
+    //pthread_rwlock_unlock(&lock_rw);
 
     if(client == NULL){
         fprintf(stderr, "Error -- writing to non existing client %lu\n", key);

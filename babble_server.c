@@ -17,7 +17,7 @@
 #include "babble_utils.h"
 #include "babble_communication.h"
 
-#define CBUFFER_SIZE 100
+#define CBUFFER_SIZE 1000
 command_t command_buffer[CBUFFER_SIZE];
 int bcount = 0;
 
@@ -233,19 +233,22 @@ void* communication_thread(void* arg)
     while(1){
 
         //Manage concurrency?
+        fprintf(stderr, "before receiving first message\n");
         bzero(client_name, BABBLE_ID_SIZE+1);
         if((recv_size = network_recv(socket, (void**)&recv_buff)) < 0){
             fprintf(stderr, "Error -- recv from client\n");
-            close(socket);
+            //close(socket);
+
             break;
             //continue;
         }
-
+        fprintf(stderr, "after receiving first message\n");
         cmd = new_command(0);
         
+        fprintf(stderr, "before parsing\n");
         if(parse_command(recv_buff, cmd) == -1 || cmd->cid != LOGIN){
             fprintf(stderr, "Error -- in LOGIN message\n");
-            close(socket);
+            //close(socket);
             free(cmd);
             break;
             //continue;
@@ -256,9 +259,10 @@ void* communication_thread(void* arg)
          * for the LOGIN command */
         cmd->sock = socket;
     
+        fprintf(stderr, "before processing\n");
         if(process_command(cmd) == -1){
             fprintf(stderr, "Error -- in LOGIN\n");
-            close(socket);
+            //close(socket);
             free(cmd);
             break;    
         }
@@ -266,7 +270,7 @@ void* communication_thread(void* arg)
         /* notify client of registration */
         if(answer_command(cmd) == -1){
             fprintf(stderr, "Error -- in LOGIN ack\n");
-            close(socket);
+            //close(socket);
             free(cmd);
             break;
             //continue;
@@ -297,7 +301,6 @@ void* communication_thread(void* arg)
                 sem_post(&sem_cs);
                 sem_post(&sem_process);
             }
-            free(recv_buff);
             free(cmd);
         }
 
@@ -308,10 +311,16 @@ void* communication_thread(void* arg)
             if(unregisted_client(cmd)){
                 fprintf(stderr,"Warning -- failed to unregister client %s\n",client_name);
             }
+
             free(cmd);
+            break;
         }
     }
 
+    if(recv_buff != NULL) {
+        free(recv_buff);
+    }
+    close(socket);
     return NULL;
 }
 
@@ -378,6 +387,7 @@ int main(int argc, char *argv[])
 
         //Accept connection
         if((newsockfd= server_connection_accept(sockfd))==-1){
+            fprintf(stderr,"Failed to create accept SOCKET\n");
             return -1;
         }
 
