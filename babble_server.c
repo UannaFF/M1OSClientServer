@@ -233,7 +233,7 @@ void* communication_thread(void* arg)
     while(1){
 
         //Manage concurrency?
-        fprintf(stderr, "before receiving first message\n");
+        //fprintf(stderr, "before receiving first message\n");
         bzero(client_name, BABBLE_ID_SIZE+1);
         if((recv_size = network_recv(socket, (void**)&recv_buff)) < 0){
             fprintf(stderr, "Error -- recv from client\n");
@@ -242,10 +242,10 @@ void* communication_thread(void* arg)
             break;
             //continue;
         }
-        fprintf(stderr, "after receiving first message\n");
+        //fprintf(stderr, "after receiving first message\n");
         cmd = new_command(0);
         
-        fprintf(stderr, "before parsing\n");
+        //fprintf(stderr, "before parsing\n");
         if(parse_command(recv_buff, cmd) == -1 || cmd->cid != LOGIN){
             fprintf(stderr, "Error -- in LOGIN message\n");
             //close(socket);
@@ -259,10 +259,11 @@ void* communication_thread(void* arg)
          * for the LOGIN command */
         cmd->sock = socket;
     
-        fprintf(stderr, "before processing\n");
+        //fprintf(stderr, "before processing\n");
         if(process_command(cmd) == -1){
             fprintf(stderr, "Error -- in LOGIN\n");
             //close(socket);
+            free(recv_buff);
             free(cmd);
             break;    
         }
@@ -272,6 +273,7 @@ void* communication_thread(void* arg)
             fprintf(stderr, "Error -- in LOGIN ack\n");
             //close(socket);
             free(cmd);
+            free(recv_buff);
             break;
             //continue;
         }
@@ -302,6 +304,7 @@ void* communication_thread(void* arg)
                 sem_post(&sem_process);
             }
             free(cmd);
+            free(recv_buff);
         }
 
         if(client_name[0] != 0){
@@ -311,14 +314,10 @@ void* communication_thread(void* arg)
             if(unregisted_client(cmd)){
                 fprintf(stderr,"Warning -- failed to unregister client %s\n",client_name);
             }
-
+            //fprintf(stderr,"before free \n");
             free(cmd);
             break;
         }
-    }
-
-    if(recv_buff != NULL) {
-        free(recv_buff);
     }
     close(socket);
     return NULL;
